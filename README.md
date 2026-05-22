@@ -21,7 +21,3 @@ This project is a Bluetooth controlled smart rover developed using Arduino UNO. 
 - Arduino IDE
 - Embedded C
 
-## Future Improvements
-- STM32 Integration
-- IoT Monitoring
-- Camera Module

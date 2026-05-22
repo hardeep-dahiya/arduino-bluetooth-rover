@@ -1,0 +1,276 @@
+/*
+========================================================
+ Arduino Based Bluetooth Mobility Rover
+ With Obstacle Detection and Servo Scanning
+========================================================
+
+Components Used:
+- Arduino UNO
+- HC-05 Bluetooth Module
+- HC-SR04 Ultrasonic Sensor
+- Servo Motor
+- L298N Motor Driver
+- DC Motors
+
+Bluetooth Commands:
+F = Forward
+B = Backward
+L = Left
+R = Right
+S = Stop
+A = Auto Obstacle Avoidance Mode
+
+========================================================
+*/
+
+#include <Servo.h>
+
+// ---------------- MOTOR PINS ----------------
+
+// Left Motor
+#define ENA 5
+#define IN1 8
+#define IN2 9
+
+// Right Motor
+#define ENB 6
+#define IN3 10
+#define IN4 11
+
+// ---------------- ULTRASONIC SENSOR ----------------
+
+#define TRIG_PIN 2
+#define ECHO_PIN 3
+
+// ---------------- SERVO ----------------
+
+#define SERVO_PIN 4
+
+Servo myServo;
+
+// ---------------- VARIABLES ----------------
+
+char command;
+long duration;
+int distance;
+
+// ========================================================
+// SETUP
+// ========================================================
+
+void setup()
+{
+  Serial.begin(9600);
+
+  // Motor Pins
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+
+  pinMode(ENB, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  // Ultrasonic Pins
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+
+  // Servo
+  myServo.attach(SERVO_PIN);
+  myServo.write(90);
+
+  stopMotors();
+
+  Serial.println("Bluetooth Rover Ready");
+}
+
+// ========================================================
+// LOOP
+// ========================================================
+
+void loop()
+{
+  // Read Bluetooth Command
+  if (Serial.available())
+  {
+    command = Serial.read();
+
+    switch (command)
+    {
+      case 'F':
+        moveForward();
+        break;
+
+      case 'B':
+        moveBackward();
+        break;
+
+      case 'L':
+        turnLeft();
+        break;
+
+      case 'R':
+        turnRight();
+        break;
+
+      case 'S':
+        stopMotors();
+        break;
+
+      case 'A':
+        autoMode();
+        break;
+    }
+  }
+}
+
+// ========================================================
+// MOTOR FUNCTIONS
+// ========================================================
+
+void moveForward()
+{
+  analogWrite(ENA, 180);
+  analogWrite(ENB, 180);
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void moveBackward()
+{
+  analogWrite(ENA, 180);
+  analogWrite(ENB, 180);
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void turnLeft()
+{
+  analogWrite(ENA, 180);
+  analogWrite(ENB, 180);
+
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void turnRight()
+{
+  analogWrite(ENA, 180);
+  analogWrite(ENB, 180);
+
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void stopMotors()
+{
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
+
+// ========================================================
+// DISTANCE FUNCTION
+// ========================================================
+
+int getDistance()
+{
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+
+  digitalWrite(TRIG_PIN, LOW);
+
+  duration = pulseIn(ECHO_PIN, HIGH);
+
+  distance = duration * 0.034 / 2;
+
+  return distance;
+}
+
+// ========================================================
+// AUTO OBSTACLE AVOIDANCE MODE
+// ========================================================
+
+void autoMode()
+{
+  while (true)
+  {
+    int frontDistance = getDistance();
+
+    Serial.println(frontDistance);
+
+    // Obstacle Detected
+    if (frontDistance < 20)
+    {
+      stopMotors();
+      delay(300);
+
+      moveBackward();
+      delay(500);
+
+      stopMotors();
+      delay(300);
+
+      // Scan Left
+      myServo.write(150);
+      delay(500);
+      int leftDistance = getDistance();
+
+      // Scan Right
+      myServo.write(30);
+      delay(500);
+      int rightDistance = getDistance();
+
+      // Center Servo
+      myServo.write(90);
+      delay(500);
+
+      // Decide Direction
+      if (leftDistance > rightDistance)
+      {
+        turnLeft();
+        delay(500);
+      }
+      else
+      {
+        turnRight();
+        delay(500);
+      }
+    }
+    else
+    {
+      moveForward();
+    }
+
+    // Exit Auto Mode
+    if (Serial.available())
+    {
+      char newCommand = Serial.read();
+
+      if (newCommand == 'S')
+      {
+        stopMotors();
+        break;
+      }
+    }
+  }
+}
